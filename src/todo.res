@@ -34,14 +34,6 @@ external writeFileSync: (string, string, fsConfig) => unit = "writeFileSync"
 
 let encoding = "utf8"
 
-/*
-NOTE: The code below is provided just to show you how to use the
-date and file functions defined above. Remove it to begin your implementation.
-*/
-
-let pending_todos_file = "todo.txt"
-let completed_todos_file = "done.txt"
-
 let help_string = `Usage :-
 $ ./todo add "todo item"  # Add a new todo
 $ ./todo ls               # Show remaining todos
@@ -50,20 +42,77 @@ $ ./todo done NUMBER      # Complete a todo
 $ ./todo help             # Show usage
 $ ./todo report           # Statistics`
 
+/*
+NOTE: The code below is provided just to show you how to use the
+date and file functions defined above. Remove it to begin your implementation.
+*/
+
+let pending_todos_file = "todo.txt"
+let completed_todos_file = "done.txt"
+
+let readFile: string => string = (fileName) => {
+  readFileSync(fileName, {encoding: "utf8", flag: "r"})
+}
+
+let appendFile: (string, string) => unit = (fileName, text) => {
+  appendFileSync(fileName, text++"\n", { encoding: "utf8", flag: "a"})
+}
+
+let writeFile: (string, string) => unit = (fileName, text) => {
+  writeFileSync(fileName, text++"\n", { encoding: "utf8", flag: "w"})
+}
+
 let cmdHelp: unit => unit = () => {
   Js.log(help_string)
 }
 
+let formatOutputToArray: string => array<string> = (content) => {
+let refined = Js.String.split("\n",content)
+  let _ = Js.Array.pop(refined)
+  refined
+  // Js.Array.reverseInPlace(refined)
+}
+
 let cmdLs: unit => unit = () => {
-  Js.log("List todos")
+  let content = readFile(pending_todos_file)
+  let final = formatOutputToArray(content)
+  let size = Js.Array.length(final)
+  if(size == 0) {
+    Js.log("There are no pending todos!")
+  } 
+  else {
+    for i in size downto 1 {
+      Js.log(`[${Belt.Int.toString(i)}] ${final[i-1]}`)
+    }
+  }
 }
 
 let cmdAddTodo: string => unit = (todo) => {
-  Js.log(`Add todo: ${todo}`)
+  if todo==""{
+    Js.log("Error: Missing todo string. Nothing added!");
+  } else {
+    appendFile(pending_todos_file, todo)
+    Js.log(`Added todo: "${todo}"`)
+  }
 }
 
 let cmdDelTodo: string => unit = (id) => {
-  Js.log(`Del todo: ${id}`)
+  if id == "" {
+    Js.log(`Error: Missing NUMBER for deleting todo.`)
+  } else {
+    //let idInt = Belt.Int.fromString(id)
+    let idInt = 0
+    let content = readFile(pending_todos_file)
+    let final = formatOutputToArray(content)
+    let size = Js.Array.length(final)
+    if idInt < 1 || idInt > size {
+      Js.log(`Error: todo #${id} does not exist. Nothing deleted.`)
+    } else {
+      let _ = Js.Array.spliceInPlace(~pos=idInt-1, ~remove=1, ~add=[],final)
+      let final2 = Js.Array.joinWith("\n",final)
+      writeFile(pending_todos_file, final2)
+  } 
+  }
 }
 
 let cmdMarkDone: string => unit = (id) => {
@@ -75,6 +124,15 @@ let cmdReport: unit => unit = () => {
 }
 
 let argv = Sys.argv
+
+if !existsSync(pending_todos_file) {
+  writeFileSync(pending_todos_file, "", { encoding: "utf8", flag: "w"})
+}
+if !existsSync(completed_todos_file) {
+  writeFileSync(completed_todos_file, "", { encoding: "utf8", flag: "w"})
+}
+
+
 let isValid = if Js.Array.length(argv) == 3 || Js.Array.length(argv) == 4 {
   true
 } else {
