@@ -50,8 +50,16 @@ date and file functions defined above. Remove it to begin your implementation.
 let pending_todos_file = "todo.txt"
 let completed_todos_file = "done.txt"
 
-let readFile: string => string = (fileName) => {
-  readFileSync(fileName, {encoding: "utf8", flag: "r"})
+let formatOutputToArray: string => array<string> = (content) => {
+let refined = Js.String.split("\n",content)
+  let _ = Js.Array.pop(refined)
+  refined
+  // Js.Array.reverseInPlace(refined)
+}
+
+let readFile: string => array<string> = (fileName) => {
+  let content = readFileSync(fileName, {encoding: "utf8", flag: "r"})
+  formatOutputToArray(content)
 }
 
 let appendFile: (string, string) => unit = (fileName, text) => {
@@ -66,16 +74,8 @@ let cmdHelp: unit => unit = () => {
   Js.log(help_string)
 }
 
-let formatOutputToArray: string => array<string> = (content) => {
-let refined = Js.String.split("\n",content)
-  let _ = Js.Array.pop(refined)
-  refined
-  // Js.Array.reverseInPlace(refined)
-}
-
 let cmdLs: unit => unit = () => {
-  let content = readFile(pending_todos_file)
-  let final = formatOutputToArray(content)
+  let final = readFile(pending_todos_file)
   let size = Js.Array.length(final)
   if(size == 0) {
     Js.log("There are no pending todos!")
@@ -96,14 +96,20 @@ let cmdAddTodo: string => unit = (todo) => {
   }
 }
 
+let returnInt = (x) => {
+  switch (x) {
+  | Some (y) => y
+  | None => -1 // invalid condition
+  }
+}
+
 let cmdDelTodo: string => unit = (id) => {
   if id == "" {
     Js.log(`Error: Missing NUMBER for deleting todo.`)
   } else {
-    //let idInt = Belt.Int.fromString(id)
-    let idInt = 0
-    let content = readFile(pending_todos_file)
-    let final = formatOutputToArray(content)
+    let temp = Belt.Int.fromString(id)
+    let idInt = returnInt(temp)
+    let final = readFile(pending_todos_file)
     let size = Js.Array.length(final)
     if idInt < 1 || idInt > size {
       Js.log(`Error: todo #${id} does not exist. Nothing deleted.`)
@@ -111,16 +117,39 @@ let cmdDelTodo: string => unit = (id) => {
       let _ = Js.Array.spliceInPlace(~pos=idInt-1, ~remove=1, ~add=[],final)
       let final2 = Js.Array.joinWith("\n",final)
       writeFile(pending_todos_file, final2)
+      Js.log(`Deleted todo #${id}`)
   } 
   }
 }
 
 let cmdMarkDone: string => unit = (id) => {
-  Js.log(`Mark Done: ${id}`)
+  if id == "" {
+    Js.log(`Error: Missing NUMBER for marking todo as done.`)
+  } 
+  else {
+    let final = readFile(pending_todos_file)
+    let size = Js.Array.length(final)
+    let idInt = returnInt(Belt.Int.fromString(id))
+    if idInt < 1 || idInt > size {
+      Js.log(`Error: todo #${id} does not exist.`)
+    } 
+    else {
+      let completedTodo = final[idInt - 1]
+      appendFile(completed_todos_file, completedTodo)
+      let _ = Js.Array.spliceInPlace(~pos=idInt-1, ~remove=1, ~add=[],final)
+      let final2 = Js.Array.joinWith("\n",final)
+      writeFile(pending_todos_file, final2)
+      Js.log(`Marked todo #${id} as done.`)
+    }
+  }
 }
 
 let cmdReport: unit => unit = () => {
-  Js.log(`Report`)
+  let pendingTodos = readFile(pending_todos_file)
+  let pendingTodosLength = Js.Array.length(pendingTodos)
+  let completedTodos = readFile(completed_todos_file)
+  let completedTodosLength = Js.Array.length(completedTodos)
+  Js.log(`${getToday()} Pending : ${Belt.Int.toString(pendingTodosLength)} Completed : ${Belt.Int.toString(completedTodosLength)}`)
 }
 
 let argv = Sys.argv

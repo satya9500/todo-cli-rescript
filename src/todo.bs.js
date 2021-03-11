@@ -3,6 +3,8 @@
 
 var Fs = require("fs");
 var Sys = require("bs-platform/lib/js/sys.js");
+var Curry = require("bs-platform/lib/js/curry.js");
+var Belt_Int = require("bs-platform/lib/js/belt_Int.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
 
 var getToday = (function() {
@@ -18,11 +20,17 @@ var pending_todos_file = "todo.txt";
 
 var completed_todos_file = "done.txt";
 
+function formatOutputToArray(content) {
+  var refined = content.split("\n");
+  refined.pop();
+  return refined;
+}
+
 function readFile(fileName) {
-  return Fs.readFileSync(fileName, {
-              encoding: "utf8",
-              flag: "r"
-            });
+  return formatOutputToArray(Fs.readFileSync(fileName, {
+                  encoding: "utf8",
+                  flag: "r"
+                }));
 }
 
 function appendFile(fileName, text) {
@@ -46,18 +54,8 @@ function cmdHelp(param) {
   
 }
 
-function formatOutputToArray(content) {
-  var refined = content.split("\n");
-  refined.pop();
-  return refined;
-}
-
 function cmdLs(param) {
-  var content = Fs.readFileSync(pending_todos_file, {
-        encoding: "utf8",
-        flag: "r"
-      });
-  var $$final = formatOutputToArray(content);
+  var $$final = readFile(pending_todos_file);
   var size = $$final.length;
   if (size === 0) {
     console.log("There are no pending todos!");
@@ -79,33 +77,62 @@ function cmdAddTodo(todo) {
   
 }
 
+function returnInt(x) {
+  if (x !== undefined) {
+    return x;
+  } else {
+    return -1;
+  }
+}
+
 function cmdDelTodo(id) {
   if (id === "") {
     console.log("Error: Missing NUMBER for deleting todo.");
     return ;
   }
-  var content = Fs.readFileSync(pending_todos_file, {
-        encoding: "utf8",
-        flag: "r"
-      });
-  var $$final = formatOutputToArray(content);
+  var temp = Belt_Int.fromString(id);
+  var idInt = temp !== undefined ? temp : -1;
+  var $$final = readFile(pending_todos_file);
   var size = $$final.length;
-  if (true || 0 > size) {
+  if (idInt < 1 || idInt > size) {
     console.log("Error: todo #" + id + " does not exist. Nothing deleted.");
     return ;
   }
-  $$final.splice(-1, 1);
+  $$final.splice(idInt - 1 | 0, 1);
   var final2 = $$final.join("\n");
-  return writeFile(pending_todos_file, final2);
+  writeFile(pending_todos_file, final2);
+  console.log("Deleted todo #" + id);
+  
 }
 
 function cmdMarkDone(id) {
-  console.log("Mark Done: " + id);
+  if (id === "") {
+    console.log("Error: Missing NUMBER for marking todo as done.");
+    return ;
+  }
+  var $$final = readFile(pending_todos_file);
+  var size = $$final.length;
+  var x = Belt_Int.fromString(id);
+  var idInt = x !== undefined ? x : -1;
+  if (idInt < 1 || idInt > size) {
+    console.log("Error: todo #" + id + " does not exist.");
+    return ;
+  }
+  var completedTodo = Caml_array.get($$final, idInt - 1 | 0);
+  appendFile(completed_todos_file, completedTodo);
+  $$final.splice(idInt - 1 | 0, 1);
+  var final2 = $$final.join("\n");
+  writeFile(pending_todos_file, final2);
+  console.log("Marked todo #" + id + " as done.");
   
 }
 
 function cmdReport(param) {
-  console.log("Report");
+  var pendingTodos = readFile(pending_todos_file);
+  var pendingTodosLength = pendingTodos.length;
+  var completedTodos = readFile(completed_todos_file);
+  var completedTodosLength = completedTodos.length;
+  console.log(Curry._1(getToday, undefined) + " Pending : " + String(pendingTodosLength) + " Completed : " + String(completedTodosLength));
   
 }
 
@@ -151,8 +178,7 @@ if (isValid) {
         cases = cmdLs(undefined);
         break;
     case "report" :
-        console.log("Report");
-        cases = undefined;
+        cases = cmdReport(undefined);
         break;
     default:
       console.log(help_string);
@@ -172,13 +198,14 @@ exports.encoding = encoding;
 exports.help_string = help_string;
 exports.pending_todos_file = pending_todos_file;
 exports.completed_todos_file = completed_todos_file;
+exports.formatOutputToArray = formatOutputToArray;
 exports.readFile = readFile;
 exports.appendFile = appendFile;
 exports.writeFile = writeFile;
 exports.cmdHelp = cmdHelp;
-exports.formatOutputToArray = formatOutputToArray;
 exports.cmdLs = cmdLs;
 exports.cmdAddTodo = cmdAddTodo;
+exports.returnInt = returnInt;
 exports.cmdDelTodo = cmdDelTodo;
 exports.cmdMarkDone = cmdMarkDone;
 exports.cmdReport = cmdReport;
